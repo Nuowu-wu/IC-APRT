@@ -103,4 +103,6 @@ class DataManager {
     }
 }
 
-module.exports = new DataManager(); 
+// 导出类的实例
+const dataManager = new DataManager();
+module.exports = dataManager; 
