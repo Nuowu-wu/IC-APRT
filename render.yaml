@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: kali-monitor
+    env: node
+    buildCommand: |
+      mkdir -p uploads logs
+      npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: ADMIN_AUTH
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1 
