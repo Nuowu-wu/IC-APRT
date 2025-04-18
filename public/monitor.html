@@ -3,21 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Info</title>
+    <title>[SYSTEM::MONITOR]</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-
-        body {
-            font-family: 'Share Tech Mono', monospace;
-            background-color: #0a0a0a;
-            color: #00ff00;
-            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-            position: relative;
-            overflow-x: hidden;
+        :root {
+            --neon-green: #00ff00;
+            --dark-green: #001a00;
+            --glow-strength: 8px;
+            --scan-line-color: rgba(0, 255, 0, 0.1);
         }
 
-        #matrix-bg {
+        * {
+            font-family: 'Share Tech Mono', monospace;
+            cursor: crosshair;
+        }
+
+        body {
+            background-color: #000;
+            color: var(--neon-green);
+            text-shadow: 0 0 var(--glow-strength) rgba(0, 255, 0, 0.7);
+            position: relative;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        #matrix-rain {
             position: fixed;
             top: 0;
             left: 0;
@@ -26,83 +38,19 @@
             z-index: -1;
         }
 
-        .content-wrapper {
-            position: relative;
-            z-index: 1;
-            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.9));
-        }
-
-        .data-card {
-            background: rgba(0, 20, 0, 0.7);
-            border: 1px solid rgba(0, 255, 0, 0.2);
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
-            backdrop-filter: blur(5px);
-        }
-
-        .data-card:hover {
-            border-color: rgba(0, 255, 0, 0.5);
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
-        }
-
-        .cyber-button {
-            background: rgba(0, 40, 0, 0.6);
-            border: 1px solid rgba(0, 255, 0, 0.3);
-            color: #00ff00;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .cyber-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(0, 255, 0, 0.2),
-                transparent
-            );
-            transition: 0.5s;
-        }
-
-        .cyber-button:hover::before {
-            left: 100%;
-        }
-
-        .cyber-button:hover {
-            background: rgba(0, 60, 0, 0.8);
-            border-color: #00ff00;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-            text-shadow: 0 0 5px #00ff00;
-        }
-
-        .terminal-text {
-            font-family: 'Share Tech Mono', monospace;
-            color: #00ff00;
-        }
-
-        .blink {
-            animation: blink 1s infinite;
-        }
-
-        @keyframes blink {
-            50% { opacity: 0; }
-        }
-
         .scan-line {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            height: 2px;
-            background: rgba(0, 255, 0, 0.2);
-            animation: scan 6s linear infinite;
+            height: 4px;
+            background: linear-gradient(to right,
+                transparent,
+                var(--neon-green),
+                transparent
+            );
+            animation: scan 3s linear infinite;
+            opacity: 0.5;
             z-index: 1000;
             pointer-events: none;
         }
@@ -112,246 +60,338 @@
             100% { transform: translateY(100vh); }
         }
 
-        #camera-preview {
-            border: 1px solid rgba(0, 255, 0, 0.3);
-            background: rgba(0, 20, 0, 0.5);
-        }
-
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            background: #00ff00;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.3; }
-            100% { opacity: 1; }
-        }
-
-        .glitch {
+        .data-card {
+            background: rgba(0, 10, 0, 0.85);
+            border: 1px solid var(--neon-green);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            backdrop-filter: blur(10px);
             position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
         }
 
-        .glitch::before,
-        .glitch::after {
-            content: attr(data-text);
+        .data-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+
+        .data-card::before {
+            content: '';
             position: absolute;
             top: 0;
             left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-green), transparent);
+            animation: scan-line 2s linear infinite;
+            box-shadow: 0 0 15px var(--neon-green);
+        }
+
+        .cyber-button {
+            background: var(--dark-green);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+            text-transform: uppercase;
+            padding: 12px 24px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            text-shadow: 0 0 5px var(--neon-green);
+            letter-spacing: 2px;
+        }
+
+        .cyber-button:hover {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 20px var(--neon-green);
+            transform: translateY(-2px);
+        }
+
+        .cyber-button::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                transparent,
+                rgba(0, 255, 0, 0.2),
+                transparent
+            );
+            transform: rotate(45deg);
+            animation: button-shine 3s linear infinite;
+            z-index: 1;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            background: var(--neon-green);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 15px var(--neon-green);
+            animation: pulse 2s infinite;
+        }
+
+        .terminal-text {
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--neon-green);
+            line-height: 1.6;
+            text-shadow: 0 0 5px var(--neon-green);
+        }
+
+        .glitch-text {
+            position: relative;
+            animation: glitch 3s infinite;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            padding: 1rem;
+        }
+
+        .chart-container {
+            position: relative;
             width: 100%;
-            height: 100%;
+            height: 200px;
+            margin-top: 1rem;
         }
 
-        .glitch::before {
-            left: 2px;
-            text-shadow: -2px 0 #ff0000;
-            animation: glitch-1 2s infinite linear alternate-reverse;
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
         }
 
-        .glitch::after {
-            left: -2px;
-            text-shadow: 2px 0 #0000ff;
-            animation: glitch-2 2s infinite linear alternate-reverse;
+        .stat-box {
+            background: rgba(0, 20, 0, 0.5);
+            border: 1px solid var(--neon-green);
+            padding: 0.5rem;
+            text-align: center;
+            animation: stat-pulse 2s infinite;
         }
 
-        @keyframes glitch-1 {
-            0% { clip-path: inset(20% 0 30% 0); }
-            20% { clip-path: inset(60% 0 10% 0); }
-            40% { clip-path: inset(40% 0 50% 0); }
-            60% { clip-path: inset(80% 0 5% 0); }
-            80% { clip-path: inset(10% 0 70% 0); }
-            100% { clip-path: inset(30% 0 20% 0); }
+        @keyframes stat-pulse {
+            0% { border-color: var(--neon-green); }
+            50% { border-color: rgba(0, 255, 0, 0.3); }
+            100% { border-color: var(--neon-green); }
         }
 
-        @keyframes glitch-2 {
-            0% { clip-path: inset(30% 0 20% 0); }
-            20% { clip-path: inset(10% 0 70% 0); }
-            40% { clip-path: inset(80% 0 5% 0); }
-            60% { clip-path: inset(40% 0 50% 0); }
-            80% { clip-path: inset(60% 0 10% 0); }
-            100% { clip-path: inset(20% 0 30% 0); }
+        .keyboard-shortcut {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        .scroll-content::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .scroll-content::-webkit-scrollbar-track {
+            background: var(--dark-green);
+            border: 1px solid var(--neon-green);
+        }
+
+        .scroll-content::-webkit-scrollbar-thumb {
+            background: var(--neon-green);
+            border-radius: 4px;
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 20, 0, 0.9);
+            border: 1px solid var(--neon-green);
+            padding: 10px 20px;
+            border-radius: 4px;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            z-index: 1000;
+            animation: notification-slide 0.3s ease-out;
+        }
+
+        @keyframes notification-slide {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
 <body>
-    <canvas id="matrix-bg"></canvas>
+    <canvas id="matrix-rain"></canvas>
     <div class="scan-line"></div>
-    
-    <div class="content-wrapper min-h-screen p-4">
-        <div class="container mx-auto">
-            <!-- 顶部状态栏 -->
-            <div class="data-card rounded-lg p-4 mb-6">
-                <div class="flex justify-between items-center">
-                    <div class="flex items-center">
-                        <span class="status-indicator"></span>
-                        <span class="text-sm">系统状态: 活跃</span>
-                    </div>
-                    <div class="text-sm">
-                        <span id="current-time" class="mr-4"></span>
-                        <span id="active-connections" class="blink">连接数: 1</span>
-                    </div>
-                </div>
-            </div>
 
-            <!-- 控制面板 -->
-            <div class="data-card rounded-lg p-4 mb-6">
-                <h2 class="text-xl mb-4 flex items-center">
+    <div class="container mx-auto p-4">
+        <!-- 顶部状态栏 -->
+        <div class="data-card rounded-lg p-4 mb-6">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
                     <span class="status-indicator"></span>
-                    控制中心
-                </h2>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <button id="btn-camera" class="cyber-button px-4 py-2 rounded">
-                        [CAM_01] 摄像头控制
-                    </button>
-                    <button id="btn-location" class="cyber-button px-4 py-2 rounded">
-                        [GPS_01] 位置追踪
-                    </button>
-                    <button id="btn-apps" class="cyber-button px-4 py-2 rounded">
-                        [APP_01] 应用列表
-                    </button>
-                    <button id="btn-contacts" class="cyber-button px-4 py-2 rounded">
-                        [CON_01] 通讯录
-                    </button>
+                    <span class="glitch-text">[SYSTEM::ACTIVE]</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="current-time" class="terminal-text"></span>
+                    <span class="flex items-center">
+                        <span class="status-indicator"></span>
+                        <span id="active-connections" class="glitch-text">CONN::1</span>
+                    </span>
                 </div>
             </div>
+            <div class="stats-grid mt-4">
+                <div class="stat-box">
+                    <div class="text-sm opacity-70">CPU USAGE</div>
+                    <div id="cpu-usage" class="text-xl">0%</div>
+                </div>
+                <div class="stat-box">
+                    <div class="text-sm opacity-70">MEMORY</div>
+                    <div id="memory-usage" class="text-xl">0%</div>
+                </div>
+                <div class="stat-box">
+                    <div class="text-sm opacity-70">NETWORK</div>
+                    <div id="network-speed" class="text-xl">0 KB/s</div>
+                </div>
+                <div class="stat-box">
+                    <div class="text-sm opacity-70">UPTIME</div>
+                    <div id="system-uptime" class="text-xl">00:00:00</div>
+                </div>
+            </div>
+        </div>
 
-            <!-- 实时预览 -->
-            <div class="data-card rounded-lg p-4 mb-6">
-                <h2 class="text-xl mb-4 flex items-center">
+        <!-- 主控制面板 -->
+        <div class="data-card rounded-lg p-4 mb-6">
+            <h2 class="text-xl mb-4 flex items-center">
+                <span class="status-indicator"></span>
+                CONTROL::CENTER
+                <span class="keyboard-shortcut">[CTRL+P]</span>
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button class="cyber-button rounded" onclick="toggleCamera()" data-shortcut="C">
+                    [CAM_01] CAMERA
+                </button>
+                <button class="cyber-button rounded" onclick="toggleLocation()" data-shortcut="L">
+                    [GPS_01] LOCATION
+                </button>
+                <button class="cyber-button rounded" onclick="getApps()" data-shortcut="A">
+                    [APP_01] APPS
+                </button>
+                <button class="cyber-button rounded" onclick="getContacts()" data-shortcut="T">
+                    [CON_01] CONTACTS
+                </button>
+            </div>
+        </div>
+
+        <!-- 数据网格 -->
+        <div class="data-grid">
+            <!-- 摄像头模块 -->
+            <div class="data-card rounded-lg p-4">
+                <h3 class="text-lg mb-3 flex items-center">
                     <span class="status-indicator"></span>
-                    实时监控
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <h3 class="text-lg mb-2 terminal-text">> 摄像头预览</h3>
-                        <video id="camera-preview" class="w-full h-48 rounded" autoplay muted></video>
+                    CAMERA::FEED
+                    <span class="keyboard-shortcut">[ALT+1]</span>
+                </h3>
+                <div class="camera-feed">
+                    <div class="camera-overlay">
+                        <span id="camera-status" class="glitch-text">● REC</span>
+                        <span id="camera-time">00:00:00</span>
                     </div>
-                    <div>
-                        <h3 class="text-lg mb-2 terminal-text">> 位置信息</h3>
-                        <div id="location-preview" class="w-full h-48 rounded p-4 data-card"></div>
-                    </div>
+                    <img id="camera-output" src="" alt="Camera Feed">
+                </div>
+                <div class="chart-container">
+                    <canvas id="camera-activity-chart"></canvas>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- 设备信息 -->
-                <div class="data-card rounded-lg p-4">
-                    <h2 class="text-xl mb-4 flex items-center">
-                        <span class="status-indicator"></span>
-                        设备信息
-                    </h2>
-                    <div id="device-info" class="space-y-2 terminal-text"></div>
+            <!-- 位置信息模块 -->
+            <div class="data-card rounded-lg p-4">
+                <h3 class="text-lg mb-3 flex items-center">
+                    <span class="status-indicator"></span>
+                    LOCATION::DATA
+                    <span class="keyboard-shortcut">[ALT+2]</span>
+                </h3>
+                <div id="location-info" class="terminal-text scroll-content"></div>
+                <div class="chart-container">
+                    <canvas id="location-history-chart"></canvas>
                 </div>
+            </div>
 
-                <!-- 应用列表 -->
-                <div class="data-card rounded-lg p-4">
-                    <h2 class="text-xl mb-4 flex items-center">
-                        <span class="status-indicator"></span>
-                        已安装应用
-                    </h2>
-                    <div id="apps-list" class="space-y-2 terminal-text"></div>
+            <!-- 设备信息模块 -->
+            <div class="data-card rounded-lg p-4">
+                <h3 class="text-lg mb-3 flex items-center">
+                    <span class="status-indicator"></span>
+                    DEVICE::INFO
+                    <span class="keyboard-shortcut">[ALT+3]</span>
+                </h3>
+                <div id="device-info" class="terminal-text scroll-content"></div>
+                <div class="chart-container">
+                    <canvas id="device-performance-chart"></canvas>
                 </div>
+            </div>
 
-                <!-- 通讯录 -->
-                <div class="data-card rounded-lg p-4">
-                    <h2 class="text-xl mb-4 flex items-center">
-                        <span class="status-indicator"></span>
-                        通讯录
-                    </h2>
-                    <div id="contacts-list" class="space-y-2 terminal-text"></div>
-                </div>
-
-                <!-- 系统日志 -->
-                <div class="data-card rounded-lg p-4">
-                    <h2 class="text-xl mb-4 flex items-center">
-                        <span class="status-indicator"></span>
-                        系统日志
-                    </h2>
-                    <div id="system-log" class="space-y-2 h-64 overflow-y-auto terminal-text text-sm"></div>
-                </div>
+            <!-- 系统日志模块 -->
+            <div class="data-card rounded-lg p-4">
+                <h3 class="text-lg mb-3 flex items-center">
+                    <span class="status-indicator"></span>
+                    SYSTEM::LOG
+                    <span class="keyboard-shortcut">[ALT+4]</span>
+                </h3>
+                <div id="system-log" class="terminal-text scroll-content"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // Matrix背景动画
-        class MatrixBackground {
+        // Matrix雨效果
+        class MatrixRain {
             constructor() {
-                this.canvas = document.getElementById('matrix-bg');
+                this.canvas = document.getElementById('matrix-rain');
                 this.ctx = this.canvas.getContext('2d');
-                this.chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+-=[]{}|;:,.<>?/\\ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ';
+                this.characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+-=[]{}|;:,.<>?/\\ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ';
+                this.fontSize = 14;
+                this.columns = 0;
                 this.drops = [];
-                this.fontSize = 12;
-                this.init();
+                
+                this.initialize();
+                window.addEventListener('resize', () => this.initialize());
             }
 
-            init() {
+            initialize() {
                 this.canvas.width = window.innerWidth;
                 this.canvas.height = window.innerHeight;
-                const columns = Math.floor(this.canvas.width / (this.fontSize * 0.6));
-                
-                for(let i = 0; i < columns; i++) {
-                    this.drops[i] = Math.floor(Math.random() * -50);
+                this.columns = Math.floor(this.canvas.width / this.fontSize);
+                this.drops = [];
+                for(let i = 0; i < this.columns; i++) {
+                    this.drops[i] = Math.random() * -100;
                 }
-
-                window.addEventListener('resize', () => {
-                    this.canvas.width = window.innerWidth;
-                    this.canvas.height = window.innerHeight;
-                    const newColumns = Math.floor(this.canvas.width / (this.fontSize * 0.6));
-                    if(newColumns > this.drops.length) {
-                        for(let i = this.drops.length; i < newColumns; i++) {
-                            this.drops[i] = Math.floor(Math.random() * -50);
-                        }
-                    } else {
-                        this.drops.length = newColumns;
-                    }
-                });
-
-                this.animate();
             }
 
             draw() {
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
                 this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                
-                this.ctx.shadowBlur = 8;
-                this.ctx.shadowColor = '#0f0';
+
+                this.ctx.fillStyle = '#0f0';
                 this.ctx.font = this.fontSize + 'px monospace';
 
                 for(let i = 0; i < this.drops.length; i++) {
-                    const text = this.chars[Math.floor(Math.random() * this.chars.length)];
-                    const x = i * (this.fontSize * 0.6);
+                    const text = this.characters[Math.floor(Math.random() * this.characters.length)];
+                    const x = i * this.fontSize;
                     const y = this.drops[i] * this.fontSize;
 
-                    const gradient = this.ctx.createLinearGradient(x, y-this.fontSize, x, y);
-                    gradient.addColorStop(0, 'rgba(0, 255, 0, 0)');
-                    gradient.addColorStop(0.8, 'rgba(0, 255, 0, 0.5)');
-                    gradient.addColorStop(1, '#0f0');
-                    
-                    if(Math.random() > 0.98) {
-                        this.ctx.fillStyle = '#fff';
-                    } else {
-                        this.ctx.fillStyle = gradient;
-                    }
-                    
+                    this.ctx.fillStyle = `rgba(0, 255, 0, ${Math.random() * 0.5 + 0.5})`;
                     this.ctx.fillText(text, x, y);
 
-                    if(y > this.canvas.height && Math.random() > 0.985) {
+                    if(y > this.canvas.height && Math.random() > 0.975) {
                         this.drops[i] = 0;
                     }
-                    this.drops[i] += Math.random() * 0.5 + 0.5;
-                }
-
-                for(let i = 0; i < 3; i++) {
-                    const x = Math.random() * this.canvas.width;
-                    const y = Math.random() * this.canvas.height;
-                    this.ctx.fillStyle = '#fff';
-                    this.ctx.fillText(this.chars[Math.floor(Math.random() * this.chars.length)], x, y);
+                    this.drops[i]++;
                 }
             }
 
@@ -361,174 +401,218 @@
             }
         }
 
-        // 初始化Matrix背景
-        new MatrixBackground();
+        // 初始化Matrix雨效果
+        const matrixRain = new MatrixRain();
+        matrixRain.animate();
 
-        // 更新时间显示
-        function updateTime() {
-            const now = new Date();
-            document.getElementById('current-time').textContent = 
-                `${now.toLocaleTimeString()} [${now.toLocaleDateString()}]`;
-        }
-        setInterval(updateTime, 1000);
-        updateTime();
-
-        class MonitoringSystem {
+        // 性能图表
+        class PerformanceMonitor {
             constructor() {
-                this.initializeButtons();
-                this.startDataFetch();
-                this.logs = [];
+                this.initializeCharts();
+                this.updateCharts();
             }
 
-            initializeButtons() {
-                document.getElementById('btn-camera').onclick = () => this.toggleCamera();
-                document.getElementById('btn-location').onclick = () => this.toggleLocation();
-                document.getElementById('btn-apps').onclick = () => this.refreshApps();
-                document.getElementById('btn-contacts').onclick = () => this.refreshContacts();
-            }
-
-            async toggleCamera() {
-                try {
-                    const video = document.getElementById('camera-preview');
-                    if (video.srcObject) {
-                        video.srcObject.getTracks().forEach(track => track.stop());
-                        video.srcObject = null;
-                        this.log('>> 摄像头已关闭');
-                    } else {
-                        const stream = await this.requestCameraAccess();
-                        video.srcObject = stream;
-                        this.log('>> 摄像头已开启');
-                    }
-                } catch (error) {
-                    this.log('>> ERROR: 摄像头访问失败: ' + error.message);
-                }
-            }
-
-            async requestCameraAccess() {
-                try {
-                    return await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: 'environment' }, 
-                        audio: false 
-                    });
-                } catch (error) {
-                    throw new Error('无法访问摄像头');
-                }
-            }
-
-            toggleLocation() {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        position => {
-                            const locationHtml = `
-                                <div class="terminal-text">
-                                    <p>>> LAT: ${position.coords.latitude}</p>
-                                    <p>>> LON: ${position.coords.longitude}</p>
-                                    <p>>> ACC: ${position.coords.accuracy}m</p>
-                                    <p>>> TIME: ${new Date(position.timestamp).toLocaleString()}</p>
-                                </div>
-                            `;
-                            document.getElementById('location-preview').innerHTML = locationHtml;
-                            this.log('>> 位置信息已更新');
+            initializeCharts() {
+                // CPU使用率图表
+                this.deviceChart = new Chart(
+                    document.getElementById('device-performance-chart'),
+                    {
+                        type: 'line',
+                        data: {
+                            labels: Array(10).fill(''),
+                            datasets: [{
+                                label: 'CPU Usage',
+                                data: Array(10).fill(0),
+                                borderColor: '#00ff00',
+                                backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                                tension: 0.4
+                            }]
                         },
-                        error => {
-                            this.log('>> ERROR: 获取位置失败: ' + error.message);
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    grid: {
+                                        color: 'rgba(0, 255, 0, 0.1)'
+                                    },
+                                    ticks: {
+                                        color: '#00ff00'
+                                    }
+                                },
+                                x: {
+                                    grid: {
+                                        color: 'rgba(0, 255, 0, 0.1)'
+                                    },
+                                    ticks: {
+                                        color: '#00ff00'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    labels: {
+                                        color: '#00ff00'
+                                    }
+                                }
+                            }
                         }
-                    );
-                }
-            }
-
-            async refreshApps() {
-                try {
-                    const response = await fetch('/api/apps');
-                    const apps = await response.json();
-                    const appsHtml = apps.map(app => `
-                        <div class="flex items-center justify-between p-2 data-card">
-                            <span>>> ${app.name}</span>
-                            <button class="cyber-button text-sm px-2 py-1 rounded" 
-                                    onclick="monitorSystem.launchApp('${app.id}')">
-                                启动
-                            </button>
-                        </div>
-                    `).join('');
-                    document.getElementById('apps-list').innerHTML = appsHtml;
-                    this.log('>> 应用列表已更新');
-                } catch (error) {
-                    this.log('>> ERROR: 获取应用列表失败');
-                }
-            }
-
-            async refreshContacts() {
-                try {
-                    const response = await fetch('/api/contacts');
-                    const contacts = await response.json();
-                    const contactsHtml = contacts.map(contact => `
-                        <div class="flex items-center justify-between p-2 data-card">
-                            <span>>> ${contact.name}</span>
-                            <span>${contact.phone}</span>
-                        </div>
-                    `).join('');
-                    document.getElementById('contacts-list').innerHTML = contactsHtml;
-                    this.log('>> 通讯录已更新');
-                } catch (error) {
-                    this.log('>> ERROR: 获取通讯录失败');
-                }
-            }
-
-            async launchApp(appId) {
-                try {
-                    await fetch('/api/launch-app', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ appId })
-                    });
-                    this.log(`>> 已启动应用: ${appId}`);
-                } catch (error) {
-                    this.log('>> ERROR: 启动应用失败');
-                }
-            }
-
-            log(message) {
-                const timestamp = new Date().toLocaleTimeString();
-                this.logs.unshift(`[${timestamp}] ${message}`);
-                if (this.logs.length > 100) this.logs.pop();
-                
-                document.getElementById('system-log').innerHTML = this.logs
-                    .map(log => `<div class="terminal-text">${log}</div>`)
-                    .join('');
-            }
-
-            async startDataFetch() {
-                setInterval(async () => {
-                    try {
-                        const response = await fetch('/api/monitor');
-                        const data = await response.json();
-                        
-                        document.getElementById('device-info').innerHTML = `
-                            <div class="terminal-text">
-                                <p>>> DEV: ${data.device?.model || 'UNKNOWN'}</p>
-                                <p>>> OS: ${data.device?.os || 'UNKNOWN'}</p>
-                                <p>>> BAT: ${data.device?.battery ? data.device.battery.level * 100 + '%' : 'UNKNOWN'}</p>
-                                <p>>> NET: ${data.device?.network?.type || 'UNKNOWN'}</p>
-                                <p>>> MEM: ${this.formatBytes(data.device?.storage?.usage || 0)} / 
-                                        ${this.formatBytes(data.device?.storage?.quota || 0)}</p>
-                            </div>
-                        `;
-                    } catch (error) {
-                        console.error('Error fetching data:', error);
                     }
-                }, 5000);
+                );
+            }
+
+            updateCharts() {
+                setInterval(() => {
+                    const cpuUsage = Math.random() * 100;
+                    this.deviceChart.data.datasets[0].data.shift();
+                    this.deviceChart.data.datasets[0].data.push(cpuUsage);
+                    this.deviceChart.update();
+
+                    document.getElementById('cpu-usage').textContent = `${Math.round(cpuUsage)}%`;
+                    document.getElementById('memory-usage').textContent = `${Math.round(Math.random() * 100)}%`;
+                    document.getElementById('network-speed').textContent = `${Math.round(Math.random() * 1000)} KB/s`;
+                }, 1000);
+            }
+        }
+
+        // 系统日志
+        class SystemLog {
+            constructor() {
+                this.logElement = document.getElementById('system-log');
+                this.maxLogs = 100;
+            }
+
+            add(message, type = 'info') {
+                const now = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.className = 'mb-1';
+                logEntry.innerHTML = `
+                    <span class="opacity-75">[${now}]</span>
+                    <span class="text-${type === 'error' ? 'red' : 'green'}-500">${message}</span>
+                `;
+                this.logElement.insertBefore(logEntry, this.logElement.firstChild);
+
+                // 限制日志数量
+                while (this.logElement.children.length > this.maxLogs) {
+                    this.logElement.removeChild(this.logElement.lastChild);
+                }
+
+                // 显示通知
+                this.showNotification(message, type);
+            }
+
+            showNotification(message, type) {
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.textContent = message;
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
+        }
+
+        // 设备监控
+        class DeviceMonitor {
+            constructor() {
+                this.logger = new SystemLog();
+                this.performanceMonitor = new PerformanceMonitor();
+                this.initializeMonitoring();
+                this.setupKeyboardShortcuts();
+            }
+
+            setupKeyboardShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.altKey) {
+                        switch(e.key) {
+                            case '1': this.toggleCamera(); break;
+                            case '2': this.toggleLocation(); break;
+                            case '3': this.toggleDeviceInfo(); break;
+                            case '4': this.toggleSystemLog(); break;
+                        }
+                    }
+                });
+            }
+
+            async initializeMonitoring() {
+                try {
+                    await this.updateDeviceData();
+                    this.logger.add('SYSTEM::INITIALIZED');
+                    setInterval(() => this.updateDeviceData(), 5000);
+                } catch (error) {
+                    this.logger.add('SYSTEM::INITIALIZATION_FAILED: ' + error.message, 'error');
+                }
+            }
+
+            async updateDeviceData() {
+                try {
+                    const response = await fetch('/api/monitor');
+                    if (!response.ok) throw new Error('获取数据失败');
+                    
+                    const data = await response.json();
+                    this.updateDeviceInfo(data.device);
+                    this.updateLocationInfo(data.location);
+                    this.logger.add('数据更新成功');
+                } catch (error) {
+                    this.logger.add('数据更新失败: ' + error.message, 'error');
+                }
+            }
+
+            updateDeviceInfo(device) {
+                if (!device) return;
+                const deviceInfo = document.getElementById('device-info');
+                deviceInfo.innerHTML = `
+                    <div class="space-y-2">
+                        <p>> 设备型号: ${device.model}</p>
+                        <p>> 操作系统: ${device.os}</p>
+                        <p>> 浏览器: ${device.browser}</p>
+                        <p>> 电池电量: ${device.battery ? Math.round(device.battery.level * 100) + '%' : 'N/A'}</p>
+                        <p>> 网络类型: ${device.network?.type || 'Unknown'}</p>
+                        <p>> 内存使用: ${this.formatBytes(device.memory)}</p>
+                    </div>
+                `;
+            }
+
+            updateLocationInfo(location) {
+                if (!location) return;
+                const locationInfo = document.getElementById('location-info');
+                locationInfo.innerHTML = `
+                    <div class="space-y-2">
+                        <p>> 纬度: ${location.lat}</p>
+                        <p>> 经度: ${location.lon}</p>
+                        <p>> 城市: ${location.city}</p>
+                        <p>> 国家: ${location.country}</p>
+                        <p>> ISP: ${location.isp}</p>
+                        <p>> IP: ${location.ip}</p>
+                    </div>
+                `;
             }
 
             formatBytes(bytes) {
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                if (bytes === 0) return '0 Bytes';
-                const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-                return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+                if (!bytes || bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
         }
 
         // 初始化监控系统
-        const monitorSystem = new MonitoringSystem();
+        const monitor = new DeviceMonitor();
+
+        // 更新系统运行时间
+        let startTime = Date.now();
+        setInterval(() => {
+            const uptime = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(uptime / 3600).toString().padStart(2, '0');
+            const minutes = Math.floor((uptime % 3600) / 60).toString().padStart(2, '0');
+            const seconds = (uptime % 60).toString().padStart(2, '0');
+            document.getElementById('system-uptime').textContent = `${hours}:${minutes}:${seconds}`;
+        }, 1000);
     </script>
 </body>
 </html> 
