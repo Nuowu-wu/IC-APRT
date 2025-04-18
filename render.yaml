@@ -1,21 +1,19 @@
 services:
   - type: web
-    name: kali-monitor
+    name: monitoring-system
     env: node
     buildCommand: |
-      mkdir -p uploads logs
       npm install
-    startCommand: npm start
+      chmod +x src/*.js
+    startCommand: node src/server.js
     envVars:
-      - key: PORT
-        value: 3000
       - key: NODE_ENV
         value: production
-      - key: ADMIN_AUTH
-        sync: false
-    healthCheckPath: /
-    autoDeploy: true
+      - key: PORT
+        value: 3000
+      - key: DATA_DIR
+        value: /data
     disk:
-      name: uploads
-      mountPath: /opt/render/project/src/uploads
+      name: data
+      mountPath: /data
       sizeGB: 1 
