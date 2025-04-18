@@ -11,6 +11,7 @@ const UAParser = require('ua-parser-js');
 const fetch = require('node-fetch');
 const dataManager = require('./dataManager');
 const { v4: uuidv4 } = require('uuid');
+const bodyParser = require('body-parser');
 
 require('dotenv').config();
 
@@ -186,18 +187,13 @@ class Server {
     }
 
     setupRoutes() {
-        // 主页路由
+        // 主页路由 - 重定向到登录页面
         this.app.get('/', (req, res) => {
-            res.sendFile(path.join(__dirname, '../public/index.html'));
+            res.sendFile(path.join(__dirname, '../public/login.html'));
         });
 
-        // 监控页面 - 需要密码访问
-        this.app.get('/monitor', (req, res, next) => {
-            const auth = req.headers.authorization;
-            if (!auth || auth !== `Basic ${Buffer.from(process.env.ADMIN_AUTH || 'admin:secret').toString('base64')}`) {
-                res.set('WWW-Authenticate', 'Basic realm="Monitor Access"');
-                return res.status(401).send('Authentication required');
-            }
+        // 监控页面 - 不再需要Basic认证，因为我们有了登录系统
+        this.app.get('/monitor', (req, res) => {
             res.sendFile(path.join(__dirname, '../public/monitor.html'));
         });
 
@@ -364,14 +360,44 @@ class Server {
                 res.status(500).send('Error retrieving image');
             }
         });
+
+        // 登录验证
+        this.app.post('/api/auth', (req, res) => {
+            const { username, password } = req.body;
+            
+            if (username === 'kali' && password === 'kali') {
+                res.status(200).json({ message: 'Authentication successful' });
+            } else {
+                res.status(401).json({ message: 'Invalid credentials' });
+            }
+        });
     }
 
     authenticate(req, res, next) {
-        const auth = req.headers.authorization;
-        if (!auth || auth !== `Basic ${Buffer.from(process.env.ADMIN_AUTH || 'admin:secret').toString('base64')}`) {
+        // 检查是否有认证头
+        const authHeader = req.headers.authorization;
+        
+        // 如果没有认证头，检查是否是登录请求
+        if (!authHeader) {
+            // 登录API不需要认证
+            if (req.path === '/api/auth') {
+                return next();
+            }
             return res.status(401).json({ error: 'Unauthorized' });
         }
-        next();
+
+        // 验证Basic认证
+        if (authHeader.startsWith('Basic ')) {
+            const base64Credentials = authHeader.split(' ')[1];
+            const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+            const [username, password] = credentials.split(':');
+
+            if (username === 'kali' && password === 'kali') {
+                return next();
+            }
+        }
+
+        res.status(401).json({ error: 'Invalid credentials' });
     }
 
     async saveDeviceData(data) {
