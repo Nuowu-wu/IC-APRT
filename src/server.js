@@ -44,54 +44,61 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// 添加 IP 地址处理函数
-function normalizeIP(ip) {
-    // 处理 IPv6 格式的 IPv4 地址
+// 添加内存缓存
+const locationCache = new Map();
+const ipCache = new Map();
+
+// IP地址处理函数
+async function normalizeIP(ip) {
+    // 如果是IPv6的本地回环地址，返回IPv4的本地回环地址
+    if (ip === '::1') {
+        return '127.0.0.1';
+    }
+    
+    // 处理IPv6格式的IPv4地址
     if (ip.includes('::ffff:')) {
         return ip.replace('::ffff:', '');
     }
-    // 处理本地回环地址
-    if (ip === '::1' || ip === '127.0.0.1') {
-        // 使用公共 IP 查询服务
-        return new Promise(async (resolve) => {
-            try {
-                const response = await fetch('https://api.ipify.org?format=json');
-                const data = await response.json();
-                resolve(data.ip);
-            } catch (error) {
-                console.error('Error getting public IP:', error);
-                resolve('127.0.0.1');
-            }
-        });
-    }
+
     return ip;
 }
 
 // 获取地理位置信息
 async function getLocationInfo(ip) {
+    // 检查缓存
+    if (locationCache.has(ip)) {
+        return locationCache.get(ip);
+    }
+
+    // 本地开发环境返回默认值
     if (ip === '127.0.0.1' || ip === '::1') {
-        return {
+        const localInfo = {
             city: 'Local',
             country: 'Development',
             ll: [0, 0],
             org: 'Local Network'
         };
+        locationCache.set(ip, localInfo);
+        return localInfo;
     }
 
     try {
-        const geoData = geoip.lookup(ip) || {};
-        if (!geoData.city || !geoData.country) {
-            // 如果 geoip-lite 无法获取信息，尝试使用备用服务
-            const response = await fetch(`http://ip-api.com/json/${ip}`);
-            const data = await response.json();
-            return {
-                city: data.city || 'Unknown',
-                country: data.country || 'Unknown',
-                ll: [data.lat || 0, data.lon || 0],
-                org: data.org || data.isp || 'Unknown'
-            };
+        // 使用 geoip-lite 获取位置信息
+        const geoData = geoip.lookup(ip);
+        if (geoData && geoData.city && geoData.country) {
+            locationCache.set(ip, geoData);
+            return geoData;
         }
-        return geoData;
+
+        // 如果没有获取到完整信息，返回默认值
+        const defaultInfo = {
+            city: 'Unknown',
+            country: 'Unknown',
+            ll: [0, 0],
+            org: 'Unknown'
+        };
+        locationCache.set(ip, defaultInfo);
+        return defaultInfo;
     } catch (error) {
         console.error('Error getting location info:', error);
         return {
@@ -116,17 +123,25 @@ class Server {
         // 确保必要的目录存在
         ensureDirectories().catch(console.error);
 
-        // 定期清理过期的设备数据
-        setInterval(() => this.cleanupDeviceData(), 1000 * 60 * 60); // 每小时清理一次
+        // 定期清理缓存和过期数据
+        setInterval(() => {
+            this.cleanupDeviceData();
+            this.cleanupCaches();
+        }, 1000 * 60 * 60); // 每小时清理一次
     }
 
-    // 清理超过24小时的设备数据
-    cleanupDeviceData() {
+    // 清理过期的缓存数据
+    cleanupCaches() {
         const now = Date.now();
-        for (const [ip, data] of this.deviceData.entries()) {
-            if (now - new Date(data.timestamp).getTime() > 24 * 60 * 60 * 1000) {
-                this.deviceData.delete(ip);
-                this.activeUsers.delete(ip);
+        // 清理超过1小时的缓存
+        for (const [key, value] of locationCache.entries()) {
+            if (value.timestamp && now - value.timestamp > 60 * 60 * 1000) {
+                locationCache.delete(key);
+            }
+        }
+        for (const [key, value] of ipCache.entries()) {
+            if (value.timestamp && now - value.timestamp > 60 * 60 * 1000) {
+                ipCache.delete(key);
             }
         }
     }
@@ -158,6 +173,14 @@ class Server {
 
         // 静态文件服务
         this.app.use(express.static(path.join(__dirname, '../public')));
+
+        // 添加请求限制中间件
+        const apiLimiter = rateLimit({
+            windowMs: 15 * 60 * 1000, // 15分钟
+            max: 100, // 限制每个IP 100个请求
+            message: 'Too many requests from this IP, please try again later'
+        });
+        this.app.use('/api/', apiLimiter);
     }
 
     setupRoutes() {
@@ -200,8 +223,8 @@ class Server {
                 const parser = new UAParser(userAgent);
                 const parsedUA = parser.getResult();
                 const geoData = await getLocationInfo(clientIP);
-                
-                // 获取更详细的系统信息
+
+                // 获取系统信息
                 const deviceInfo = {
                     model: parsedUA.device.model || parsedUA.os.name || 'Unknown',
                     os: `${parsedUA.os.name || 'Unknown'} ${parsedUA.os.version || ''}`.trim(),
@@ -218,8 +241,8 @@ class Server {
                 const data = {
                     device: deviceInfo,
                     location: {
-                        lat: req.body.data?.lat || geoData.ll?.[0] || 0,
-                        lon: req.body.data?.lon || geoData.ll?.[1] || 0,
+                        lat: geoData.ll?.[0] || 0,
+                        lon: geoData.ll?.[1] || 0,
                         city: geoData.city,
                         country: geoData.country,
                         isp: geoData.org,
@@ -233,11 +256,11 @@ class Server {
                         uptime: req.body.system?.uptime || 0
                     }
                 };
-                
+
                 this.deviceData.set(clientIP, data);
                 this.activeUsers.add(clientIP);
                 await this.saveDeviceData(data);
-                
+
                 res.status(200).send({ status: 'ok', data });
             } catch (error) {
                 console.error('Error processing track request:', error);
