@@ -9,7 +9,7 @@ const multer = require('multer');
 const geoip = require('geoip-lite');
 const UAParser = require('ua-parser-js');
 const fetch = require('node-fetch');
-const dataManager = require('./dataManager.js');
+const dataManager = require(path.join(__dirname, 'dataManager.js'));
 const { v4: uuidv4 } = require('uuid');
 const bodyParser = require('body-parser');
 
