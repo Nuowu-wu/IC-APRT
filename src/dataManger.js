@@ -4,59 +4,106 @@ const moment = require('moment');
 
 class DataManager {
     constructor() {
-        this.baseDir = path.join(__dirname, '..', 'data');
+        // 使用环境变量或默认值来设置基础目录
+        const baseDir = process.env.DATA_DIR || 'data';
+        
+        // 确保路径是绝对路径
+        this.baseDir = path.isAbsolute(baseDir) ? baseDir : path.join(process.cwd(), baseDir);
+        
+        // 定义子目录
         this.dirs = {
             camera: path.join(this.baseDir, 'camera_captures'),
             system: path.join(this.baseDir, 'system_info'),
             location: path.join(this.baseDir, 'location_data'),
             logs: path.join(this.baseDir, 'logs')
         };
-        this.initialize();
+
+        // 异步初始化目录
+        this.initPromise = this.initialize().catch(err => {
+            console.error('Error initializing directories:', err);
+        });
     }
 
     async initialize() {
-        // 创建所需的目录
-        for (const dir of Object.values(this.dirs)) {
-            await fs.mkdir(dir, { recursive: true });
+        try {
+            // 创建所需的目录
+            for (const dir of Object.values(this.dirs)) {
+                try {
+                    await fs.mkdir(dir, { recursive: true });
+                    console.log(`Directory created/verified: ${dir}`);
+                } catch (err) {
+                    console.warn(`Warning: Could not create directory ${dir}:`, err.message);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to initialize directories:', err);
+            // 不抛出错误，让应用程序继续运行
         }
     }
 
+    async ensureInitialized() {
+        await this.initPromise;
+    }
+
     async saveCameraImage(imageData, deviceId) {
-        const timestamp = moment().format('YYYY-MM-DD_HH-mm-ss');
-        const filename = `${deviceId}_${timestamp}.jpg`;
-        const filepath = path.join(this.dirs.camera, filename);
-        
-        // 将Base64图像数据保存为文件
-        const base64Data = imageData.replace(/^data:image\/jpeg;base64,/, '');
-        await fs.writeFile(filepath, base64Data, 'base64');
-        
-        return filename;
+        await this.ensureInitialized();
+        try {
+            const timestamp = moment().format('YYYY-MM-DD_HH-mm-ss');
+            const filename = `${deviceId}_${timestamp}.jpg`;
+            const filepath = path.join(this.dirs.camera, filename);
+            
+            const base64Data = imageData.replace(/^data:image\/jpeg;base64,/, '');
+            await fs.writeFile(filepath, base64Data, 'base64');
+            
+            return filename;
+        } catch (err) {
+            console.error('Error saving camera image:', err);
+            throw err;
+        }
     }
 
     async saveSystemInfo(data, deviceId) {
-        const timestamp = moment().format('YYYY-MM-DD_HH-mm-ss');
-        const filename = `${deviceId}_${timestamp}.json`;
-        const filepath = path.join(this.dirs.system, filename);
-        
-        await fs.writeFile(filepath, JSON.stringify(data, null, 2));
-        return filename;
+        await this.ensureInitialized();
+        try {
+            const timestamp = moment().format('YYYY-MM-DD_HH-mm-ss');
+            const filename = `${deviceId}_${timestamp}.json`;
+            const filepath = path.join(this.dirs.system, filename);
+            
+            await fs.writeFile(filepath, JSON.stringify(data, null, 2));
+            return filename;
+        } catch (err) {
+            console.error('Error saving system info:', err);
+            throw err;
+        }
     }
 
     async saveLocationData(data, deviceId) {
-        const timestamp = moment().format('YYYY-MM-DD_HH-mm-ss');
-        const filename = `${deviceId}_${timestamp}.json`;
-        const filepath = path.join(this.dirs.location, filename);
-        
-        await fs.writeFile(filepath, JSON.stringify(data, null, 2));
-        return filename;
+        await this.ensureInitialized();
+        try {
+            const timestamp = moment().format('YYYY-MM-DD_HH-mm-ss');
+            const filename = `${deviceId}_${timestamp}.json`;
+            const filepath = path.join(this.dirs.location, filename);
+            
+            await fs.writeFile(filepath, JSON.stringify(data, null, 2));
+            return filename;
+        } catch (err) {
+            console.error('Error saving location data:', err);
+            throw err;
+        }
     }
 
     async saveLog(message, type = 'info', deviceId) {
-        const timestamp = moment().format('YYYY-MM-DD HH:mm:ss');
-        const logEntry = `[${timestamp}] [${type.toUpperCase()}] [${deviceId}] ${message}\n`;
-        const logFile = path.join(this.dirs.logs, `${moment().format('YYYY-MM-DD')}.log`);
-        
-        await fs.appendFile(logFile, logEntry);
+        await this.ensureInitialized();
+        try {
+            const timestamp = moment().format('YYYY-MM-DD HH:mm:ss');
+            const logEntry = `[${timestamp}] [${type.toUpperCase()}] [${deviceId}] ${message}\n`;
+            const logFile = path.join(this.dirs.logs, `${moment().format('YYYY-MM-DD')}.log`);
+            
+            await fs.appendFile(logFile, logEntry);
+        } catch (err) {
+            console.error('Error saving log:', err);
+            // 继续执行，不抛出错误
+        }
     }
 
     async getDeviceHistory(deviceId, type, limit = 10) {
@@ -103,6 +150,8 @@ class DataManager {
     }
 }
 
-// 导出类的实例
+// 创建单例实例
 const dataManager = new DataManager();
+
+// 导出实例
 module.exports = dataManager; 
