@@ -11,14 +11,28 @@ const UAParser = require('ua-parser-js');
 
 require('dotenv').config();
 
+// 确保必要的目录存在
+const ensureDirectories = async () => {
+    const dirs = ['uploads', 'logs'].map(dir => path.join(__dirname, '..', dir));
+    for (const dir of dirs) {
+        try {
+            await fs.mkdir(dir, { recursive: true });
+        } catch (error) {
+            console.log(`Directory ${dir} already exists or cannot be created`);
+        }
+    }
+};
+
 // 配置图片存储
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const dir = path.join(__dirname, '../uploads');
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+    destination: async function (req, file, cb) {
+        const dir = path.join(__dirname, '..', 'uploads');
+        try {
+            await fs.mkdir(dir, { recursive: true });
+            cb(null, dir);
+        } catch (error) {
+            cb(error, null);
         }
-        cb(null, dir);
     },
     filename: function (req, file, cb) {
         cb(null, 'latest-camera.jpg');
@@ -35,6 +49,9 @@ class Server {
         this.setupRoutes();
         this.setupErrorHandling();
         this.deviceData = new Map();
+        
+        // 确保必要的目录存在
+        ensureDirectories().catch(console.error);
     }
 
     setupMiddleware() {
@@ -223,7 +240,7 @@ class Server {
 
     async saveDeviceData(data) {
         try {
-            const logDir = path.join(__dirname, '../logs');
+            const logDir = path.join(__dirname, '..', 'logs');
             await fs.mkdir(logDir, { recursive: true });
             
             const logFile = path.join(logDir, `devices_${new Date().toISOString().split('T')[0]}.json`);
@@ -260,11 +277,13 @@ class Server {
 
     start() {
         this.app.listen(this.port, () => {
-            console.log(`Server running on port ${this.port}`);
+            console.log(`Server is running on port ${this.port}`);
+            console.log(`Environment: ${process.env.NODE_ENV}`);
+            console.log(`Current directory: ${__dirname}`);
         });
     }
 }
 
-// 启动服务器
+// 创建并启动服务器
 const server = new Server();
 server.start(); 
