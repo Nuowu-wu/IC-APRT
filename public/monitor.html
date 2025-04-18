@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Info</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: #0a0a0a;
+            color: #00ff00;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        #matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.9));
+        }
+
+        .data-card {
+            background: rgba(0, 20, 0, 0.7);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+            backdrop-filter: blur(5px);
+        }
+
+        .data-card:hover {
+            border-color: rgba(0, 255, 0, 0.5);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+        }
+
+        .cyber-button {
+            background: rgba(0, 40, 0, 0.6);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            color: #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cyber-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(0, 255, 0, 0.2),
+                transparent
+            );
+            transition: 0.5s;
+        }
+
+        .cyber-button:hover::before {
+            left: 100%;
+        }
+
+        .cyber-button:hover {
+            background: rgba(0, 60, 0, 0.8);
+            border-color: #00ff00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            text-shadow: 0 0 5px #00ff00;
+        }
+
+        .terminal-text {
+            font-family: 'Share Tech Mono', monospace;
+            color: #00ff00;
+        }
+
+        .blink {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .scan-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: rgba(0, 255, 0, 0.2);
+            animation: scan 6s linear infinite;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+
+        #camera-preview {
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            background: rgba(0, 20, 0, 0.5);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .glitch {
+            position: relative;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glitch::before {
+            left: 2px;
+            text-shadow: -2px 0 #ff0000;
+            animation: glitch-1 2s infinite linear alternate-reverse;
+        }
+
+        .glitch::after {
+            left: -2px;
+            text-shadow: 2px 0 #0000ff;
+            animation: glitch-2 2s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-1 {
+            0% { clip-path: inset(20% 0 30% 0); }
+            20% { clip-path: inset(60% 0 10% 0); }
+            40% { clip-path: inset(40% 0 50% 0); }
+            60% { clip-path: inset(80% 0 5% 0); }
+            80% { clip-path: inset(10% 0 70% 0); }
+            100% { clip-path: inset(30% 0 20% 0); }
+        }
+
+        @keyframes glitch-2 {
+            0% { clip-path: inset(30% 0 20% 0); }
+            20% { clip-path: inset(10% 0 70% 0); }
+            40% { clip-path: inset(80% 0 5% 0); }
+            60% { clip-path: inset(40% 0 50% 0); }
+            80% { clip-path: inset(60% 0 10% 0); }
+            100% { clip-path: inset(20% 0 30% 0); }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="matrix-bg"></canvas>
+    <div class="scan-line"></div>
+    
+    <div class="content-wrapper min-h-screen p-4">
+        <div class="container mx-auto">
+            <!-- 顶部状态栏 -->
+            <div class="data-card rounded-lg p-4 mb-6">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <span class="status-indicator"></span>
+                        <span class="text-sm">系统状态: 活跃</span>
+                    </div>
+                    <div class="text-sm">
+                        <span id="current-time" class="mr-4"></span>
+                        <span id="active-connections" class="blink">连接数: 1</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制面板 -->
+            <div class="data-card rounded-lg p-4 mb-6">
+                <h2 class="text-xl mb-4 flex items-center">
+                    <span class="status-indicator"></span>
+                    控制中心
+                </h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button id="btn-camera" class="cyber-button px-4 py-2 rounded">
+                        [CAM_01] 摄像头控制
+                    </button>
+                    <button id="btn-location" class="cyber-button px-4 py-2 rounded">
+                        [GPS_01] 位置追踪
+                    </button>
+                    <button id="btn-apps" class="cyber-button px-4 py-2 rounded">
+                        [APP_01] 应用列表
+                    </button>
+                    <button id="btn-contacts" class="cyber-button px-4 py-2 rounded">
+                        [CON_01] 通讯录
+                    </button>
+                </div>
+            </div>
+
+            <!-- 实时预览 -->
+            <div class="data-card rounded-lg p-4 mb-6">
+                <h2 class="text-xl mb-4 flex items-center">
+                    <span class="status-indicator"></span>
+                    实时监控
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <h3 class="text-lg mb-2 terminal-text">> 摄像头预览</h3>
+                        <video id="camera-preview" class="w-full h-48 rounded" autoplay muted></video>
+                    </div>
+                    <div>
+                        <h3 class="text-lg mb-2 terminal-text">> 位置信息</h3>
+                        <div id="location-preview" class="w-full h-48 rounded p-4 data-card"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 设备信息 -->
+                <div class="data-card rounded-lg p-4">
+                    <h2 class="text-xl mb-4 flex items-center">
+                        <span class="status-indicator"></span>
+                        设备信息
+                    </h2>
+                    <div id="device-info" class="space-y-2 terminal-text"></div>
+                </div>
+
+                <!-- 应用列表 -->
+                <div class="data-card rounded-lg p-4">
+                    <h2 class="text-xl mb-4 flex items-center">
+                        <span class="status-indicator"></span>
+                        已安装应用
+                    </h2>
+                    <div id="apps-list" class="space-y-2 terminal-text"></div>
+                </div>
+
+                <!-- 通讯录 -->
+                <div class="data-card rounded-lg p-4">
+                    <h2 class="text-xl mb-4 flex items-center">
+                        <span class="status-indicator"></span>
+                        通讯录
+                    </h2>
+                    <div id="contacts-list" class="space-y-2 terminal-text"></div>
+                </div>
+
+                <!-- 系统日志 -->
+                <div class="data-card rounded-lg p-4">
+                    <h2 class="text-xl mb-4 flex items-center">
+                        <span class="status-indicator"></span>
+                        系统日志
+                    </h2>
+                    <div id="system-log" class="space-y-2 h-64 overflow-y-auto terminal-text text-sm"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Matrix背景动画
+        class MatrixBackground {
+            constructor() {
+                this.canvas = document.getElementById('matrix-bg');
+                this.ctx = this.canvas.getContext('2d');
+                this.chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+-=[]{}|;:,.<>?/\\ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ';
+                this.drops = [];
+                this.fontSize = 12;
+                this.init();
+            }
+
+            init() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                const columns = Math.floor(this.canvas.width / (this.fontSize * 0.6));
+                
+                for(let i = 0; i < columns; i++) {
+                    this.drops[i] = Math.floor(Math.random() * -50);
+                }
+
+                window.addEventListener('resize', () => {
+                    this.canvas.width = window.innerWidth;
+                    this.canvas.height = window.innerHeight;
+                    const newColumns = Math.floor(this.canvas.width / (this.fontSize * 0.6));
+                    if(newColumns > this.drops.length) {
+                        for(let i = this.drops.length; i < newColumns; i++) {
+                            this.drops[i] = Math.floor(Math.random() * -50);
+                        }
+                    } else {
+                        this.drops.length = newColumns;
+                    }
+                });
+
+                this.animate();
+            }
+
+            draw() {
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.ctx.shadowBlur = 8;
+                this.ctx.shadowColor = '#0f0';
+                this.ctx.font = this.fontSize + 'px monospace';
+
+                for(let i = 0; i < this.drops.length; i++) {
+                    const text = this.chars[Math.floor(Math.random() * this.chars.length)];
+                    const x = i * (this.fontSize * 0.6);
+                    const y = this.drops[i] * this.fontSize;
+
+                    const gradient = this.ctx.createLinearGradient(x, y-this.fontSize, x, y);
+                    gradient.addColorStop(0, 'rgba(0, 255, 0, 0)');
+                    gradient.addColorStop(0.8, 'rgba(0, 255, 0, 0.5)');
+                    gradient.addColorStop(1, '#0f0');
+                    
+                    if(Math.random() > 0.98) {
+                        this.ctx.fillStyle = '#fff';
+                    } else {
+                        this.ctx.fillStyle = gradient;
+                    }
+                    
+                    this.ctx.fillText(text, x, y);
+
+                    if(y > this.canvas.height && Math.random() > 0.985) {
+                        this.drops[i] = 0;
+                    }
+                    this.drops[i] += Math.random() * 0.5 + 0.5;
+                }
+
+                for(let i = 0; i < 3; i++) {
+                    const x = Math.random() * this.canvas.width;
+                    const y = Math.random() * this.canvas.height;
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.fillText(this.chars[Math.floor(Math.random() * this.chars.length)], x, y);
+                }
+            }
+
+            animate() {
+                this.draw();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // 初始化Matrix背景
+        new MatrixBackground();
+
+        // 更新时间显示
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = 
+                `${now.toLocaleTimeString()} [${now.toLocaleDateString()}]`;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        class MonitoringSystem {
+            constructor() {
+                this.initializeButtons();
+                this.startDataFetch();
+                this.logs = [];
+            }
+
+            initializeButtons() {
+                document.getElementById('btn-camera').onclick = () => this.toggleCamera();
+                document.getElementById('btn-location').onclick = () => this.toggleLocation();
+                document.getElementById('btn-apps').onclick = () => this.refreshApps();
+                document.getElementById('btn-contacts').onclick = () => this.refreshContacts();
+            }
+
+            async toggleCamera() {
+                try {
+                    const video = document.getElementById('camera-preview');
+                    if (video.srcObject) {
+                        video.srcObject.getTracks().forEach(track => track.stop());
+                        video.srcObject = null;
+                        this.log('>> 摄像头已关闭');
+                    } else {
+                        const stream = await this.requestCameraAccess();
+                        video.srcObject = stream;
+                        this.log('>> 摄像头已开启');
+                    }
+                } catch (error) {
+                    this.log('>> ERROR: 摄像头访问失败: ' + error.message);
+                }
+            }
+
+            async requestCameraAccess() {
+                try {
+                    return await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment' }, 
+                        audio: false 
+                    });
+                } catch (error) {
+                    throw new Error('无法访问摄像头');
+                }
+            }
+
+            toggleLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        position => {
+                            const locationHtml = `
+                                <div class="terminal-text">
+                                    <p>>> LAT: ${position.coords.latitude}</p>
+                                    <p>>> LON: ${position.coords.longitude}</p>
+                                    <p>>> ACC: ${position.coords.accuracy}m</p>
+                                    <p>>> TIME: ${new Date(position.timestamp).toLocaleString()}</p>
+                                </div>
+                            `;
+                            document.getElementById('location-preview').innerHTML = locationHtml;
+                            this.log('>> 位置信息已更新');
+                        },
+                        error => {
+                            this.log('>> ERROR: 获取位置失败: ' + error.message);
+                        }
+                    );
+                }
+            }
+
+            async refreshApps() {
+                try {
+                    const response = await fetch('/api/apps');
+                    const apps = await response.json();
+                    const appsHtml = apps.map(app => `
+                        <div class="flex items-center justify-between p-2 data-card">
+                            <span>>> ${app.name}</span>
+                            <button class="cyber-button text-sm px-2 py-1 rounded" 
+                                    onclick="monitorSystem.launchApp('${app.id}')">
+                                启动
+                            </button>
+                        </div>
+                    `).join('');
+                    document.getElementById('apps-list').innerHTML = appsHtml;
+                    this.log('>> 应用列表已更新');
+                } catch (error) {
+                    this.log('>> ERROR: 获取应用列表失败');
+                }
+            }
+
+            async refreshContacts() {
+                try {
+                    const response = await fetch('/api/contacts');
+                    const contacts = await response.json();
+                    const contactsHtml = contacts.map(contact => `
+                        <div class="flex items-center justify-between p-2 data-card">
+                            <span>>> ${contact.name}</span>
+                            <span>${contact.phone}</span>
+                        </div>
+                    `).join('');
+                    document.getElementById('contacts-list').innerHTML = contactsHtml;
+                    this.log('>> 通讯录已更新');
+                } catch (error) {
+                    this.log('>> ERROR: 获取通讯录失败');
+                }
+            }
+
+            async launchApp(appId) {
+                try {
+                    await fetch('/api/launch-app', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appId })
+                    });
+                    this.log(`>> 已启动应用: ${appId}`);
+                } catch (error) {
+                    this.log('>> ERROR: 启动应用失败');
+                }
+            }
+
+            log(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                this.logs.unshift(`[${timestamp}] ${message}`);
+                if (this.logs.length > 100) this.logs.pop();
+                
+                document.getElementById('system-log').innerHTML = this.logs
+                    .map(log => `<div class="terminal-text">${log}</div>`)
+                    .join('');
+            }
+
+            async startDataFetch() {
+                setInterval(async () => {
+                    try {
+                        const response = await fetch('/api/monitor');
+                        const data = await response.json();
+                        
+                        document.getElementById('device-info').innerHTML = `
+                            <div class="terminal-text">
+                                <p>>> DEV: ${data.device?.model || 'UNKNOWN'}</p>
+                                <p>>> OS: ${data.device?.os || 'UNKNOWN'}</p>
+                                <p>>> BAT: ${data.device?.battery ? data.device.battery.level * 100 + '%' : 'UNKNOWN'}</p>
+                                <p>>> NET: ${data.device?.network?.type || 'UNKNOWN'}</p>
+                                <p>>> MEM: ${this.formatBytes(data.device?.storage?.usage || 0)} / 
+                                        ${this.formatBytes(data.device?.storage?.quota || 0)}</p>
+                            </div>
+                        `;
+                    } catch (error) {
+                        console.error('Error fetching data:', error);
+                    }
+                }, 5000);
+            }
+
+            formatBytes(bytes) {
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                if (bytes === 0) return '0 Bytes';
+                const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+                return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+            }
+        }
+
+        // 初始化监控系统
+        const monitorSystem = new MonitoringSystem();
+    </script>
+</body>
+</html> 
