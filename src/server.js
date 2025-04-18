@@ -9,6 +9,8 @@ const multer = require('multer');
 const geoip = require('geoip-lite');
 const UAParser = require('ua-parser-js');
 const fetch = require('node-fetch');
+const dataManager = require('./dataManager');
+const { v4: uuidv4 } = require('uuid');
 
 require('dotenv').config();
 
